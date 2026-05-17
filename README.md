@@ -38,6 +38,13 @@ STEWARD_INVITE_CODE
 ADMIN_INVITE_CODE
 ```
 
+If Vercel's Upstash Redis integration gives you these names instead, they work too:
+
+```text
+UPSTASH_REDIS_REST_URL
+UPSTASH_REDIS_REST_TOKEN
+```
+
 The first account created becomes an admin automatically. After that, regular signups become `user` accounts unless they provide the steward or admin invite code.
 
 4. Deploy.
