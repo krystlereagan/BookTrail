@@ -1,21 +1,20 @@
-const REQUIRED_ENV = ["KV_REST_API_URL", "KV_REST_API_TOKEN"];
 const crypto = require("crypto");
 
 function hasStoreConfig() {
-  return REQUIRED_ENV.every((key) => process.env[key]);
+  return Boolean(getStoreUrl() && getStoreToken());
 }
 
 async function kv(command) {
   if (!hasStoreConfig()) {
-    const error = new Error("KV_REST_API_URL and KV_REST_API_TOKEN are required.");
+    const error = new Error("Redis REST environment variables are required.");
     error.status = 503;
     throw error;
   }
 
-  const response = await fetch(process.env.KV_REST_API_URL, {
+  const response = await fetch(getStoreUrl(), {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${process.env.KV_REST_API_TOKEN}`,
+      Authorization: `Bearer ${getStoreToken()}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify(command),
@@ -29,6 +28,14 @@ async function kv(command) {
   }
 
   return data.result;
+}
+
+function getStoreUrl() {
+  return process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
+}
+
+function getStoreToken() {
+  return process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
 }
 
 async function getBook(code) {
