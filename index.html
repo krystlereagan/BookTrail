@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BookTrail Little Library Tracker</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">BT</span>
+        <div>
+          <h1>BookTrail</h1>
+          <p>Track books as they move through little free libraries.</p>
+        </div>
+      </div>
+      <nav class="tabs" aria-label="Main views">
+        <button class="tab is-active" type="button" data-view="register">Register</button>
+        <button class="tab" type="button" data-view="lookup">Lookup</button>
+        <button class="tab" type="button" data-view="library">Library</button>
+        <button class="tab" type="button" data-view="account">Account</button>
+        <button class="tab" type="button" data-view="manage" id="manage-tab" hidden>Manage</button>
+      </nav>
+      <div class="account-chip" id="account-chip">Signed out</div>
+    </header>
+
+    <main>
+      <section class="view is-active" id="register-view" aria-labelledby="register-title">
+        <div class="split-layout">
+          <form class="panel" id="register-form">
+            <div class="section-heading">
+              <p class="eyebrow">New traveling book</p>
+              <h2 id="register-title">Register a book</h2>
+            </div>
+
+            <label>
+              Title
+              <input id="title" name="title" autocomplete="off" required />
+            </label>
+
+            <label>
+              Author
+              <input id="author" name="author" autocomplete="off" required />
+            </label>
+
+            <div class="field-grid">
+              <label>
+                Starting library
+                <input id="library" name="library" placeholder="Maple Street LFL" required />
+              </label>
+              <label>
+                City or neighborhood
+                <input id="place" name="place" placeholder="Boulder, CO" required />
+              </label>
+            </div>
+
+            <label>
+              A note for future readers
+              <textarea id="note" name="note" rows="4" placeholder="Read it, enjoy it, then pass it along."></textarea>
+            </label>
+
+            <button class="primary-action" type="submit">Create tracking label</button>
+          </form>
+
+          <aside class="label-preview panel" aria-labelledby="label-title">
+            <div class="section-heading">
+              <p class="eyebrow">Inside-cover label</p>
+              <h2 id="label-title">Printable label</h2>
+            </div>
+
+            <div class="book-label" id="print-label">
+              <p class="label-kicker">This book is traveling</p>
+              <h3 id="label-book-title">Register a book to create its label</h3>
+              <p id="label-book-author">Its journey will appear here.</p>
+              <img class="label-qr" id="label-qr" alt="Tracking QR code" hidden />
+              <div class="tracking-code" id="label-code">BOOK-TRAIL</div>
+              <p class="label-url" id="label-url">booktrail.example/track/BOOK-TRAIL</p>
+              <p class="label-copy">Log where you found it, leave a note, and pass it to another little library.</p>
+            </div>
+
+            <div class="label-actions">
+              <button type="button" id="print-button" disabled>Print label</button>
+              <button type="button" id="copy-button" disabled>Copy tracking link</button>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="view" id="lookup-view" aria-labelledby="lookup-title">
+        <div class="panel narrow-panel">
+          <div class="section-heading">
+            <p class="eyebrow">Found a BookTrail label?</p>
+            <h2 id="lookup-title">Look up a book</h2>
+          </div>
+          <form id="lookup-form" class="lookup-row">
+            <label>
+              Tracking code
+              <input id="lookup-code" placeholder="BT-8F2KQ9" autocomplete="off" />
+            </label>
+            <button class="primary-action" type="submit">Find book</button>
+          </form>
+        </div>
+
+        <div id="book-detail" class="book-detail" hidden></div>
+      </section>
+
+      <section class="view" id="library-view" aria-labelledby="library-title">
+        <div class="panel">
+          <div class="library-header">
+            <div class="section-heading">
+              <p class="eyebrow">Registered here</p>
+              <h2 id="library-title">Book registry</h2>
+            </div>
+            <button type="button" id="seed-button">Load sample trail</button>
+          </div>
+          <div class="book-list" id="book-list"></div>
+        </div>
+      </section>
+
+      <section class="view" id="account-view" aria-labelledby="account-title">
+        <div class="split-layout auth-layout">
+          <form class="panel" id="login-form">
+            <div class="section-heading">
+              <p class="eyebrow">Welcome back</p>
+              <h2 id="account-title">Sign in</h2>
+            </div>
+            <label>
+              Email
+              <input name="email" type="email" autocomplete="email" required />
+            </label>
+            <label>
+              Password
+              <input name="password" type="password" autocomplete="current-password" required />
+            </label>
+            <button class="primary-action" type="submit">Sign in</button>
+          </form>
+
+          <form class="panel" id="signup-form">
+            <div class="section-heading">
+              <p class="eyebrow">New account</p>
+              <h2>Create account</h2>
+            </div>
+            <label>
+              Name
+              <input name="name" autocomplete="name" required />
+            </label>
+            <label>
+              Email
+              <input name="email" type="email" autocomplete="email" required />
+            </label>
+            <label>
+              Password
+              <input name="password" type="password" autocomplete="new-password" minlength="8" required />
+            </label>
+            <div class="field-grid">
+              <label>
+                Account type
+                <select name="role">
+                  <option value="user">Reader / book owner</option>
+                  <option value="steward">Library steward</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </label>
+              <label>
+                Invite code
+                <input name="inviteCode" placeholder="For stewards or admins" />
+              </label>
+            </div>
+            <label>
+              Library name
+              <input name="libraryName" placeholder="Optional for stewards" />
+            </label>
+            <button class="primary-action" type="submit">Create account</button>
+          </form>
+        </div>
+
+        <div class="panel profile-panel" id="profile-panel" hidden></div>
+      </section>
+
+      <section class="view" id="manage-view" aria-labelledby="manage-title">
+        <div class="panel">
+          <div class="library-header">
+            <div class="section-heading">
+              <p class="eyebrow">Steward and admin tools</p>
+              <h2 id="manage-title">Manage BookTrail</h2>
+            </div>
+          </div>
+          <div id="manage-content"></div>
+        </div>
+      </section>
+    </main>
+
+    <template id="detail-template">
+      <article class="panel detail-panel">
+        <div class="detail-head">
+          <div>
+            <p class="eyebrow">Tracking record</p>
+            <h2 data-book-title></h2>
+            <p data-book-meta></p>
+          </div>
+          <span data-code class="code-pill"></span>
+        </div>
+
+        <form class="checkin-form" data-checkin-form>
+          <div class="field-grid">
+            <label>
+              Where did you find it?
+              <input name="place" placeholder="Library name or city" required />
+            </label>
+            <label>
+              Your first name
+              <input name="reader" placeholder="Optional" />
+            </label>
+          </div>
+          <label>
+            Note
+            <textarea name="note" rows="3" placeholder="What did you think? Where is it going next?"></textarea>
+          </label>
+          <button class="primary-action" type="submit">Add stop</button>
+        </form>
+
+        <ol class="timeline" data-timeline></ol>
+      </article>
+    </template>
+
+    <script src="app.js"></script>
+  </body>
+</html>

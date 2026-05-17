@@ -1,0 +1,13 @@
+{
+  "name": "booktrail",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A Vercel-ready little free library book tracking app.",
+  "scripts": {
+    "dev": "vercel dev",
+    "start": "vercel dev"
+  },
+  "engines": {
+    "node": "20.x"
+  }
+}
