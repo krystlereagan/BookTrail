@@ -47,6 +47,16 @@ UPSTASH_REDIS_REST_TOKEN
 
 The first account created becomes an admin automatically. After that, regular signups become `user` accounts unless they provide the steward or admin invite code.
 
+Optional email variables:
+
+```text
+PUBLIC_SITE_URL
+RESEND_API_KEY
+EMAIL_FROM
+```
+
+If `RESEND_API_KEY` and `EMAIL_FROM` are not configured, verification and password-reset links are returned in the app for testing instead of being emailed.
+
 4. Deploy.
 
 After deployment, labels will point to URLs like:
@@ -68,7 +78,5 @@ vercel dev
 ## Next Production Steps
 
 - Add admin moderation for public notes.
-- Add password reset and email verification.
 - Add rate limiting or CAPTCHA on check-ins.
-- Replace the third-party QR image endpoint with self-hosted QR generation.
 - Add optional map/location fields once you decide how precise locations should be.

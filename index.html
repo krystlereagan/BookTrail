@@ -136,7 +136,8 @@
             <button class="primary-action" type="submit">Sign in</button>
           </form>
 
-          <form class="panel" id="signup-form">
+          <div class="panel auth-stack">
+            <form id="signup-form">
             <div class="section-heading">
               <p class="eyebrow">New account</p>
               <h2>Create account</h2>
@@ -172,10 +173,24 @@
               <input name="libraryName" placeholder="Optional for stewards" />
             </label>
             <button class="primary-action" type="submit">Create account</button>
-          </form>
+            </form>
+
+            <form id="password-reset-request-form" class="subform">
+              <div class="section-heading compact-heading">
+                <p class="eyebrow">Password help</p>
+                <h2>Reset password</h2>
+              </div>
+              <label>
+                Email
+                <input name="email" type="email" autocomplete="email" required />
+              </label>
+              <button type="submit">Send reset link</button>
+            </form>
+          </div>
         </div>
 
         <div class="panel profile-panel" id="profile-panel" hidden></div>
+        <div class="panel profile-panel" id="reset-panel" hidden></div>
       </section>
 
       <section class="view" id="manage-view" aria-labelledby="manage-title">

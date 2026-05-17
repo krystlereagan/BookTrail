@@ -20,7 +20,9 @@ const seedButton = document.querySelector("#seed-button");
 const labelQr = document.querySelector("#label-qr");
 const loginForm = document.querySelector("#login-form");
 const signupForm = document.querySelector("#signup-form");
+const passwordResetRequestForm = document.querySelector("#password-reset-request-form");
 const profilePanel = document.querySelector("#profile-panel");
+const resetPanel = document.querySelector("#reset-panel");
 const accountChip = document.querySelector("#account-chip");
 const manageTab = document.querySelector("#manage-tab");
 const manageContent = document.querySelector("#manage-content");
@@ -100,9 +102,25 @@ signupForm.addEventListener("submit", async (event) => {
     state.user = data.user;
     signupForm.reset();
     renderAuth();
+    if (data.verificationUrl) showGlobalMessage(`Email is not configured yet. Test verification link: ${data.verificationUrl}`);
     showView("register");
   } catch (error) {
     showMessage(signupForm, error.message);
+  }
+});
+
+passwordResetRequestForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const formData = new FormData(passwordResetRequestForm);
+  try {
+    const data = await apiRequest("/api/auth/request-password-reset", "POST", { email: clean(formData.get("email")) });
+    passwordResetRequestForm.reset();
+    showMessage(
+      passwordResetRequestForm,
+      data.resetUrl ? `Email is not configured yet. Test reset link: ${data.resetUrl}` : "If that account exists, a reset link has been sent.",
+    );
+  } catch (error) {
+    showMessage(passwordResetRequestForm, error.message);
   }
 });
 
@@ -181,6 +199,7 @@ async function init() {
 
   renderAuth();
   renderLibrary();
+  await handleAuthLinks();
   await openTrackedRecord();
 }
 
@@ -220,7 +239,7 @@ function updateLabel(book) {
   document.querySelector("#label-book-author").textContent = `by ${book.author}`;
   document.querySelector("#label-code").textContent = book.code;
   document.querySelector("#label-url").textContent = link;
-  labelQr.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(link)}`;
+  labelQr.src = `/api/qr?data=${encodeURIComponent(link)}`;
   labelQr.hidden = false;
   printButton.disabled = false;
   copyButton.disabled = false;
@@ -254,12 +273,13 @@ function renderBookDetail(book) {
   });
 
   const timeline = fragment.querySelector("[data-timeline]");
-  book.stops.forEach((stop) => {
+  book.stops.filter((stop) => !stop.hidden || ["steward", "admin"].includes(state.user?.role)).forEach((stop) => {
     const item = document.createElement("li");
+    item.className = stop.hidden ? "hidden-note" : "";
     const title = stop.library && stop.library !== stop.place ? `${stop.library}, ${stop.place}` : stop.place;
     item.innerHTML = `
       <strong>${escapeHtml(title)}</strong>
-      <span>${escapeHtml(formatDate(stop.date))} by ${escapeHtml(stop.reader || "A reader")}</span>
+      <span>${escapeHtml(formatDate(stop.date))} by ${escapeHtml(stop.reader || "A reader")}${stop.hidden ? " · hidden by moderators" : ""}</span>
       ${stop.note ? `<p>${escapeHtml(stop.note)}</p>` : ""}
     `;
     timeline.append(item);
@@ -314,12 +334,16 @@ function renderAuth() {
         <div>
           <p class="eyebrow">Signed in</p>
           <h2>${escapeHtml(state.user.name)}</h2>
-          <p>${escapeHtml(state.user.email)} · ${escapeHtml(state.user.role)}</p>
+          <p>${escapeHtml(state.user.email)} · ${escapeHtml(state.user.role)} · ${state.user.emailVerified ? "verified" : "email not verified"}</p>
         </div>
-        <button type="button" id="logout-button">Sign out</button>
+        <div class="profile-actions">
+          ${state.user.emailVerified ? "" : `<button type="button" id="resend-verification-button">Resend verification</button>`}
+          <button type="button" id="logout-button">Sign out</button>
+        </div>
       </div>
     `;
     profilePanel.querySelector("#logout-button").addEventListener("click", logout);
+    profilePanel.querySelector("#resend-verification-button")?.addEventListener("click", resendVerification);
   } else {
     accountChip.textContent = "Signed out";
     loginForm.hidden = false;
@@ -329,6 +353,15 @@ function renderAuth() {
 
   const canManage = ["steward", "admin"].includes(state.user?.role);
   manageTab.hidden = !canManage;
+}
+
+async function resendVerification() {
+  try {
+    const data = await apiRequest("/api/auth/resend-verification", "POST", {});
+    showGlobalMessage(data.verificationUrl ? `Email is not configured yet. Test verification link: ${data.verificationUrl}` : "Verification email sent.");
+  } catch (error) {
+    showGlobalMessage(error.message);
+  }
 }
 
 async function logout() {
@@ -361,6 +394,22 @@ async function renderManage() {
     )
     .join("");
 
+  const stopRows = state.books
+    .flatMap((book) =>
+      book.stops.map(
+        (stop) => `
+          <article class="admin-row ${stop.hidden ? "hidden-note" : ""}">
+            <div>
+              <h3>${escapeHtml(book.title)} · ${escapeHtml(stop.place)}</h3>
+              <p>${escapeHtml(formatDate(stop.date))} by ${escapeHtml(stop.reader || "A reader")} · ${escapeHtml(stop.note || "No note")}</p>
+            </div>
+            <button type="button" data-moderate-code="${escapeHtml(book.code)}" data-stop-id="${escapeHtml(stop.id)}" data-hidden="${stop.hidden ? "false" : "true"}">${stop.hidden ? "Restore" : "Hide"}</button>
+          </article>
+        `,
+      ),
+    )
+    .join("");
+
   let adminTools = "";
   if (state.user.role === "admin") {
     try {
@@ -385,6 +434,11 @@ async function renderManage() {
       <h2>Registered books</h2>
     </div>
     <div class="admin-list">${bookRows || `<div class="empty-state">No books are registered yet.</div>`}</div>
+    <div class="section-heading">
+      <p class="eyebrow">Moderation</p>
+      <h2>Reader notes</h2>
+    </div>
+    <div class="admin-list">${stopRows || `<div class="empty-state">No trail notes yet.</div>`}</div>
     ${adminTools}
   `;
 
@@ -393,6 +447,11 @@ async function renderManage() {
   });
   manageContent.querySelectorAll("[data-role-user]").forEach((select) => {
     select.addEventListener("change", () => updateUserRole(select.dataset.roleUser, select.value));
+  });
+  manageContent.querySelectorAll("[data-moderate-code]").forEach((button) => {
+    button.addEventListener("click", () =>
+      moderateStop(button.dataset.moderateCode, button.dataset.stopId, button.dataset.hidden === "true"),
+    );
   });
 }
 
@@ -421,6 +480,60 @@ async function updateUserRole(id, role) {
   }
 }
 
+async function moderateStop(code, stopId, hidden) {
+  try {
+    const book = await apiRequest("/api/admin/moderation", "PATCH", { code, stopId, hidden });
+    upsertBook(book);
+    await renderManage();
+  } catch (error) {
+    showGlobalMessage(error.message);
+  }
+}
+
+async function handleAuthLinks() {
+  const token = new URLSearchParams(location.search).get("token");
+  if (location.pathname === "/verify-email" && token) {
+    showView("account");
+    try {
+      const data = await apiRequest("/api/auth/verify-email", "POST", { token });
+      state.user = data.user;
+      renderAuth();
+      showGlobalMessage("Email verified. You can now register books.");
+    } catch (error) {
+      showGlobalMessage(error.message);
+    }
+  }
+
+  if (location.pathname === "/reset-password" && token) {
+    showView("account");
+    resetPanel.hidden = false;
+    resetPanel.innerHTML = `
+      <form id="password-reset-form">
+        <div class="section-heading">
+          <p class="eyebrow">Password reset</p>
+          <h2>Choose a new password</h2>
+        </div>
+        <label>
+          New password
+          <input name="password" type="password" minlength="8" required />
+        </label>
+        <button class="primary-action" type="submit">Reset password</button>
+      </form>
+    `;
+    resetPanel.querySelector("#password-reset-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const formData = new FormData(event.currentTarget);
+      try {
+        await apiRequest("/api/auth/reset-password", "POST", { token, password: clean(formData.get("password")) });
+        resetPanel.hidden = true;
+        showGlobalMessage("Password reset. You can sign in with the new password.");
+      } catch (error) {
+        showMessage(event.currentTarget, error.message);
+      }
+    });
+  }
+}
+
 function localSignup(payload) {
   const user = {
     id: "local-user",
@@ -428,6 +541,7 @@ function localSignup(payload) {
     email: payload.email,
     role: payload.role === "admin" || payload.role === "steward" ? payload.role : "user",
     libraryName: payload.libraryName,
+    emailVerified: true,
     createdAt: new Date().toISOString(),
   };
   localStorage.setItem("booktrail.localUser.v1", JSON.stringify(user));
@@ -442,6 +556,7 @@ function localLogin(payload) {
       email: payload.email,
       role: "admin",
       libraryName: "",
+      emailVerified: true,
       createdAt: new Date().toISOString(),
     };
   localStorage.setItem("booktrail.localUser.v1", JSON.stringify(user));
@@ -466,10 +581,12 @@ function createLocalBook(payload) {
     createdAt: now,
     stops: [
       {
+        id: createLocalStopId(),
         place: payload.place,
         library: payload.library,
         reader: "Registered",
         note: "The journey starts here.",
+        hidden: false,
         date: now,
       },
     ],
@@ -483,14 +600,20 @@ function addLocalStop(code, payload) {
   const book = findBook(code);
   if (!book) throw new Error("No book was found for that code.");
   book.stops.unshift({
+    id: createLocalStopId(),
     place: payload.place,
     library: payload.place,
     reader: payload.reader,
     note: payload.note,
+    hidden: false,
     date: new Date().toISOString(),
   });
   saveLocalBooks();
   return book;
+}
+
+function createLocalStopId() {
+  return Math.random().toString(36).slice(2, 14);
 }
 
 function loadLocalBooks() {

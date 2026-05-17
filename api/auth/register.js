@@ -1,9 +1,12 @@
 const {
   clean,
+  createAuthToken,
   createSession,
+  getBaseUrl,
   getUserByEmail,
   hashPassword,
   saveUser,
+  sendEmail,
   sendError,
   sendJson,
   setSessionCookie,
@@ -41,13 +44,21 @@ module.exports = async function handler(req, res) {
       name: clean(input.name, 120),
       role,
       libraryName: clean(input.libraryName, 160),
+      emailVerified: false,
       passwordHash: hashPassword(input.password),
       createdAt: now,
     };
 
     const publicUser = await saveUser(user);
+    const token = await createAuthToken(user, "verify-email");
+    const verificationUrl = `${getBaseUrl(req)}/verify-email?token=${encodeURIComponent(token)}`;
+    const emailSent = await sendEmail({
+      to: user.email,
+      subject: "Verify your BookTrail email",
+      html: `<p>Welcome to BookTrail. Verify your email here:</p><p><a href="${verificationUrl}">${verificationUrl}</a></p>`,
+    });
     setSessionCookie(res, await createSession(user));
-    return sendJson(res, 201, { user: publicUser });
+    return sendJson(res, 201, { user: publicUser, emailSent, verificationUrl: emailSent ? undefined : verificationUrl });
   } catch (error) {
     return sendError(res, error);
   }

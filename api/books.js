@@ -2,6 +2,7 @@ const {
   clean,
   createCode,
   getBook,
+  getSessionUser,
   listBooks,
   requireUser,
   saveBook,
@@ -13,18 +14,21 @@ const {
 module.exports = async function handler(req, res) {
   try {
     if (req.method === "GET") {
+      const viewer = await getSessionUser(req);
+      const canModerate = ["steward", "admin"].includes(viewer?.role);
       const code = clean(req.query.code, 32).toUpperCase();
       if (code) {
         const book = await getBook(code);
         if (!book) return sendJson(res, 404, { error: "No book was found for that code." });
-        return sendJson(res, 200, book);
+        return sendJson(res, 200, visibleBook(book, canModerate));
       }
 
-      return sendJson(res, 200, await listBooks());
+      return sendJson(res, 200, (await listBooks()).map((book) => visibleBook(book, canModerate)));
     }
 
     if (req.method === "POST") {
       const user = await requireUser(req);
+      if (!user.emailVerified) return sendJson(res, 403, { error: "Please verify your email before registering books." });
       const input = req.body || {};
       validateRequired(input.title, "Title");
       validateRequired(input.author, "Author");
@@ -71,3 +75,11 @@ module.exports = async function handler(req, res) {
     return sendError(res, error);
   }
 };
+
+function visibleBook(book, canModerate) {
+  if (canModerate) return book;
+  return {
+    ...book,
+    stops: book.stops.filter((stop) => !stop.hidden),
+  };
+}

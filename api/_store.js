@@ -40,10 +40,11 @@ function getStoreToken() {
 
 async function getBook(code) {
   const value = await kv(["GET", bookKey(code)]);
-  return value ? JSON.parse(value) : null;
+  return value ? normalizeBook(JSON.parse(value)) : null;
 }
 
 async function saveBook(book) {
+  normalizeBook(book);
   await kv(["SET", bookKey(book.code), JSON.stringify(book)]);
   await kv(["ZADD", "booktrail:books", Date.parse(book.createdAt) || Date.now(), book.code]);
   return book;
@@ -53,11 +54,20 @@ async function listBooks(limit = 50) {
   const codes = await kv(["ZREVRANGE", "booktrail:books", 0, limit - 1]);
   if (!codes.length) return [];
   const values = await kv(["MGET", ...codes.map(bookKey)]);
-  return values.filter(Boolean).map((value) => JSON.parse(value));
+  return values.filter(Boolean).map((value) => normalizeBook(JSON.parse(value)));
 }
 
 function bookKey(code) {
   return `booktrail:book:${String(code).toUpperCase()}`;
+}
+
+function normalizeBook(book) {
+  book.stops = (book.stops || []).map((stop, index) => ({
+    ...stop,
+    id: stop.id || crypto.createHash("sha1").update(`${book.code}:${stop.date}:${index}`).digest("hex").slice(0, 12),
+    hidden: Boolean(stop.hidden),
+  }));
+  return book;
 }
 
 async function getUserByEmail(email) {
@@ -150,11 +160,57 @@ function sanitizeUser(user) {
   return {
     id: user.id,
     email: user.email,
+    emailVerified: Boolean(user.emailVerified),
     name: user.name,
     role: user.role,
     libraryName: user.libraryName || "",
     createdAt: user.createdAt,
   };
+}
+
+async function createAuthToken(user, type) {
+  const token = crypto.randomBytes(32).toString("base64url");
+  await kv([
+    "SET",
+    authTokenKey(token),
+    JSON.stringify({ token, type, userId: user.id, createdAt: new Date().toISOString() }),
+    "EX",
+    60 * 60 * 24,
+  ]);
+  return token;
+}
+
+async function consumeAuthToken(token, type) {
+  const value = await kv(["GET", authTokenKey(token)]);
+  if (!value) return null;
+  const record = JSON.parse(value);
+  if (record.type !== type) return null;
+  await kv(["DEL", authTokenKey(token)]);
+  return record;
+}
+
+async function sendEmail({ to, subject, html }) {
+  if (!process.env.RESEND_API_KEY || !process.env.EMAIL_FROM) return false;
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: process.env.EMAIL_FROM,
+      to,
+      subject,
+      html,
+    }),
+  });
+  return response.ok;
+}
+
+function getBaseUrl(req) {
+  if (process.env.PUBLIC_SITE_URL) return process.env.PUBLIC_SITE_URL.replace(/\/$/, "");
+  const protocol = req.headers["x-forwarded-proto"] || "https";
+  return `${protocol}://${req.headers.host}`;
 }
 
 function setSessionCookie(res, token) {
@@ -194,6 +250,10 @@ function sessionKey(token) {
   return `booktrail:session:${token}`;
 }
 
+function authTokenKey(token) {
+  return `booktrail:auth-token:${token}`;
+}
+
 function createCode() {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   return `BT-${Array.from({ length: 6 }, () => alphabet[Math.floor(Math.random() * alphabet.length)]).join("")}`;
@@ -226,7 +286,9 @@ module.exports = {
   clearSessionCookie,
   clean,
   createSession,
+  createAuthToken,
   createCode,
+  consumeAuthToken,
   deleteSession,
   getBook,
   getCookie,
@@ -237,15 +299,18 @@ module.exports = {
   hasStoreConfig,
   listBooks,
   listUsers,
+  normalizeBook,
   requireRole,
   requireUser,
   saveBook,
   saveUser,
+  sendEmail,
   sendError,
   sendJson,
   setSessionCookie,
   sanitizeUser,
   userCount,
+  getBaseUrl,
   validateRequired,
   verifyPassword,
 };

@@ -1,3 +1,4 @@
+const crypto = require("crypto");
 const { clean, getBook, saveBook, sendError, sendJson, validateRequired } = require("./_store");
 
 module.exports = async function handler(req, res) {
@@ -16,10 +17,12 @@ module.exports = async function handler(req, res) {
     if (!book) return sendJson(res, 404, { error: "No book was found for that code." });
 
     book.stops.unshift({
+      id: crypto.randomBytes(6).toString("hex"),
       place: clean(input.place, 160),
       library: clean(input.place, 160),
       reader: clean(input.reader, 80) || "A reader",
       note: clean(input.note, 1000),
+      hidden: false,
       date: new Date().toISOString(),
     });
 

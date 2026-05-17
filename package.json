@@ -7,6 +7,9 @@
     "dev": "vercel dev",
     "start": "vercel dev"
   },
+  "dependencies": {
+    "qrcode": "^1.5.4"
+  },
   "engines": {
     "node": "20.x"
   }
